@@ -25,6 +25,8 @@ class VarEval {
 	 */
 	private $_db;
 
+	private $_error;
+
 	function __construct($source, $format = "array", MongoDB $db = null) {
 		$this->_source = $source;
 
@@ -98,7 +100,9 @@ class VarEval {
 							continue;
 						}
 					}
-					exit("For your security, we stoped data parsing at '(" . token_name($type) . ") " . $token[1] . "'.");
+
+					$this->_error = "For your security, we stoped data parsing at '(" . token_name($type) . ") " . $token[1] . "'.";
+					return false;
 				}
 			}
 		}
@@ -111,33 +115,33 @@ class VarEval {
 		$ret = $this->_db->execute('function () {
 			if (typeof(ISODate) == "undefined") {
 				function ISODate (isoDateStr) {
-				    if (!isoDateStr) {
-				        return new Date;
-				    }
-				    var isoDateRegex = /(\d{4})-?(\d{2})-?(\d{2})([T ](\d{2})(:?(\d{2})(:?(\d{2}(\.\d+)?))?)?(Z|([+-])(\d{2}):?(\d{2})?)?)?/;
-				    var res = isoDateRegex.exec(isoDateStr);
-				    if (!res) {
-				        throw "invalid ISO date";
-				    }
-				    var year = parseInt(res[1], 10) || 1970;
-				    var month = (parseInt(res[2], 10) || 1) - 1;
-				    var date = parseInt(res[3], 10) || 0;
-				    var hour = parseInt(res[5], 10) || 0;
-				    var min = parseInt(res[7], 10) || 0;
-				    var sec = parseFloat(res[9]) || 0;
-				    var ms = Math.round(sec % 1 * 1000);
-				    sec -= ms / 1000;
-				    var time = Date.UTC(year, month, date, hour, min, sec, ms);
-				    if (res[11] && res[11] != "Z") {
-				        var ofs = 0;
-				        ofs += (parseInt(res[13], 10) || 0) * 60 * 60 * 1000;
-				        ofs += (parseInt(res[14], 10) || 0) * 60 * 1000;
-				        if (res[12] == "+") {
-				            ofs *= -1;
-				        }
-				        time += ofs;
-				    }
-				    return new Date(time);
+					if (!isoDateStr) {
+						return new Date;
+					}
+					var isoDateRegex = /(\d{4})-?(\d{2})-?(\d{2})([T ](\d{2})(:?(\d{2})(:?(\d{2}(\.\d+)?))?)?(Z|([+-])(\d{2}):?(\d{2})?)?)?/;
+					var res = isoDateRegex.exec(isoDateStr);
+					if (!res) {
+						throw "invalid ISO date";
+					}
+					var year = parseInt(res[1], 10) || 1970;
+					var month = (parseInt(res[2], 10) || 1) - 1;
+					var date = parseInt(res[3], 10) || 0;
+					var hour = parseInt(res[5], 10) || 0;
+					var min = parseInt(res[7], 10) || 0;
+					var sec = parseFloat(res[9]) || 0;
+					var ms = Math.round(sec % 1 * 1000);
+					sec -= ms / 1000;
+					var time = Date.UTC(year, month, date, hour, min, sec, ms);
+					if (res[11] && res[11] != "Z") {
+						var ofs = 0;
+						ofs += (parseInt(res[13], 10) || 0) * 60 * 60 * 1000;
+						ofs += (parseInt(res[14], 10) || 0) * 60 * 1000;
+						if (res[12] == "+") {
+							ofs *= -1;
+						}
+						time += ofs;
+					}
+					return new Date(time);
 				};
 			};
 
@@ -157,23 +161,34 @@ class VarEval {
 				if (obj == null || typeof(obj) != "object" || (obj.constructor != Object)) {
 					return false;
 				}
-			    for(var k in obj) {
-			        if(obj.hasOwnProperty(k)) {
-			            return false;
+				for(var k in obj) {
+					if(obj.hasOwnProperty(k)) {
+						return false;
 					}
-			    }
+				}
 
-			    return true;
+				return true;
 			};
 			var o = ' . $this->_source . '; return r_util_convert_empty_object_to_string(o); }'
 		);
 
 		$this->_fixEmptyObject($ret);
 		date_default_timezone_set($timezone);
+		$this->_error = null;
 		if ($ret["ok"]) {
 			return $ret["retval"];
+		} elseif($ret["errmsg"] === "unauthorized") {
+			return $this->parseBson($this->_source);
 		}
-		return json_decode($this->_source, true);
+
+		$fallback = json_decode($this->_source, true);
+		if (!$fallback) {
+			$this->_error = sprintf('[%s] %s', $ret['code'], $ret['errmsg']);
+		}
+
+		// eval can't be ran on a secondary, so it would fail if we're connected to a secondary. in that case
+		// fallback to regular JSON parsing
+		return $fallback;
 	}
 
 	private function _fixEmptyObject(&$object) {
@@ -185,6 +200,73 @@ class VarEval {
 		else if (is_string($object) && $object === "__EMPTYOBJECT__") {
 			$object = new stdClass();
 		}
+	}
+
+	private function parseBson($source)
+	{
+		$pattern = "/([a-z]{1,})\(([^)]+)\)/i";
+		$matches = null;
+		preg_match_all($pattern, $source, $matches);
+
+		$sourceEscaped = $source;
+
+		if(isset($matches[0]))
+		{
+			foreach($matches[0] as $matchKey => $objectString)
+			{
+				$tmpArray = array(
+					'ClassName' => $matches[1][$matchKey],
+					'Params' => $matches[2][$matchKey],
+				);
+
+				$sourceEscaped = str_replace($objectString, json_encode($tmpArray), $sourceEscaped);
+			}
+		}
+		$bson = $this->initBson(json_decode($sourceEscaped, true));
+		return $bson;
+	}
+
+	private function initBson($source)
+	{
+		foreach($source as $key => $val)
+		{
+			if(isset($val['ClassName']))
+			{
+
+				$paramWithoutQuotes = substr($val['Params'] , 1, -1 ); // remove quotes
+
+				switch($val['ClassName'])
+				{
+					case 'ObjectId':
+						$source[$key] = new MongoId($paramWithoutQuotes);
+						break;
+					case 'NumberInt':
+					case 'NumberLong':
+						$source[$key] = (int) $val['Params'];
+						break;
+					case 'NumberDouble':
+						$source[$key] = (double) $val['Params'];
+						break;
+					case 'NumberFloat':
+						$source[$key] = (float) $val['Params'];
+						break;
+					case 'ISODate':
+						$dateTime = new DateTime($paramWithoutQuotes);
+						$source[$key] = new MongoDate($dateTime->getTimestamp(), $dateTime->format("u"));
+					default:
+						unset($source['key']);
+				}
+			}
+			elseif( is_array( $val ) || $val instanceof Traversable )
+			{
+				$source[$key] = $this->initBson($val);
+			}
+		}
+		return $source;
+	}
+
+	public function lastError() {
+		return $this->_error;
 	}
 }
 

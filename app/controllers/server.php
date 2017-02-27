@@ -6,7 +6,6 @@ class ServerController extends BaseController {
 	/** server infomation **/
 	public function doIndex() {
 		$db = $this->_mongo->selectDB("admin");
-
 		//command line
 		try {
 			$query = $db->command(array("getCmdLineOpts" => 1));

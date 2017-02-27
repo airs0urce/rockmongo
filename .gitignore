@@ -1,0 +1,11 @@
+/config.php
+
+
+# IDE/OS related
+
+.buildpath
+.project
+.settings/org.eclipse.php.core.prefs
+.idea
+.DS_Store
+nbproject/

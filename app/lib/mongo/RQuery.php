@@ -59,7 +59,7 @@ class RQuery {
 			$nameOrAttrs = array( $nameOrAttrs => $value );
 		}
 		foreach ($nameOrAttrs as $attr => $value) {
-			if ($attr == "_id" && (!is_object($value) || !($value instanceof MongoId)) && strlen($attr) == 24) {
+			if ($attr == "_id" && (!is_object($value) || !($value instanceof MongoId)) && mb_strlen($attr) == 24) {
 				$value = new MongoId($value);
 			}
 			if (!isset($this->_attrs[$attr])) {
@@ -377,6 +377,7 @@ class RQuery {
 				$cursor->hint($hint);
 			}
 		}
+		$cursor->timeout(-1);
 		return $cursor;
 	}
 	
@@ -555,6 +556,7 @@ class RQuery {
 	 * @return boolean
 	 */
 	function delete() {
+
 		return $this->_collection->remove($this->criteria());
 	}
 	

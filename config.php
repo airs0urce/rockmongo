@@ -5,7 +5,22 @@
  * Defining default options and server configuration
  * @package rockmongo
  */
- 
+
+$GLOBALS["collection_preview_enabled"] = true; // Enables or disable collection preview (when you click on a collection)
+$GLOBALS["collection_pagesize"] = 10; // Controls the collection preview pagesize
+
+// session store configurating
+
+// Timeuot of session in seconds
+ini_set('gc_maxlifetime', 60*60*3); //3 hours
+
+// this defines, where session files will be stored.
+// it is important in this case: http://php.net/manual/en/session.configuration.php#ini.session.gc-maxlifetime
+$currentSessionPath = ini_get('session.save_path');
+$save_path = $currentSessionPath . DIRECTORY_SEPARATOR . 'rockmongo';
+if (!is_dir($save_path)) mkdir($save_path, 0777, true);
+ini_set('session.save_path', $save_path);
+
 $MONGO = array();
 $MONGO["features"]["log_query"] = "on";//log queries
 $MONGO["features"]["theme"] = "default";//theme
@@ -15,7 +30,7 @@ $i = 0;
 
 /**
 * Configuration of MongoDB servers
-* 
+*
 * @see more details at http://rockmongo.com/wiki/configuration?lang=en_us
 */
 $MONGO["servers"][$i]["mongo_name"] = "Localhost";//mongo server name
@@ -24,7 +39,7 @@ $MONGO["servers"][$i]["mongo_host"] = "127.0.0.1";//mongo host
 $MONGO["servers"][$i]["mongo_port"] = "27017";//mongo port
 $MONGO["servers"][$i]["mongo_timeout"] = 0;//mongo connection timeout
 //$MONGO["servers"][$i]["mongo_db"] = "MONGO_DATABASE";//default mongo db to connect, works only if mongo_auth=false
-//$MONGO["servers"][$i]["mongo_user"] = "MONGO_USERNAME";//mongo authentication user name, works only if mongo_auth=false
+// $MONGO["servers"][$i]["mongo_user"] = "MONGO_USERNAME";//mongo authentication user name, works only if mongo_auth=false
 //$MONGO["servers"][$i]["mongo_pass"] = "MONGO_PASSWORD";//mongo authentication password, works only if mongo_auth=false
 $MONGO["servers"][$i]["mongo_auth"] = false;//enable mongo authentication?
 

@@ -3,19 +3,17 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <title>RockMongo</title>
-<?php if (php_sapi_name() === 'cli-server'): ?>
-<base href="/"/>
-<?php endif; ?>
 <script language="javascript" src="js/jquery-1.4.2.min.js"></script>
 <script language="javascript" src="js/jquery.textarea.js"></script>
 <link rel="stylesheet" href="<?php render_theme_path() ?>/css/global.css" type="text/css" media="all"/>
+<link rel="icon" href="favicon.ico" type="image/x-icon">
 <?php render_page_header(); ?>
 <script language="javascript">
 $(function () {
-	$(document).click(window.parent.hideMenus);
-	if ($("textarea").length > 0) {
-		$("textarea").tabby();
-	}
+    $(document).click(window.parent.hideMenus);
+    if ($("textarea").length > 0 && $.fn.tabby) {
+        $("textarea").tabby();
+    }
 });
 </script>
 </head>

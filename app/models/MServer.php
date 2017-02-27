@@ -23,7 +23,7 @@ class MServer {
 
 	private $_docsNatureOrder = false;
 	private $_docsRender = "default";
-
+	private $_docsRenderLimit = 2000;
 	/**
 	 * the server you are operating
 	 *
@@ -98,6 +98,9 @@ class MServer {
 					break;
 				case "docs_render":
 					$this->_docsRender = $value;
+					break;
+				case "docs_render_limit":
+					$this->_docsRenderLimit = $value;
 					break;
 			}
 		}
@@ -256,7 +259,6 @@ class MServer {
 	public function docsNatureOrder() {
 		return $this->_docsNatureOrder;
 	}
-
 	/**
 	 * Set documents highlight render
 	 *
@@ -265,12 +267,11 @@ class MServer {
 	 */
 	public function setDocsRender($render) {
 		$renders = array( "default", "plain" );
-
 		if (in_array($render, $renders)) {
 			$this->_docsRender = $render;
 		}
 		else {
-			exit("docs_render should be either 'default' or 'plain'");
+			exit("docs_render should be 'default', 'plain' or 'mixed'");
 		}
 	}
 
@@ -282,6 +283,16 @@ class MServer {
 	 */
 	public function docsRender() {
 		return $this->_docsRender;
+	}
+
+	/**
+	 * Get documents highlight render limit
+	 *
+	 * @return int
+	 * @since 1.1.7
+	 */
+	public function docsRenderLimit() {
+		return $this->_docsRenderLimit;
 	}
 
 	public function auth($username, $password, $db = "admin") {
@@ -403,7 +414,7 @@ class MServer {
 		} catch (Exception $e) {
 			$dbs["ok"] = false;
 		}
-		if (!$dbs["ok"]) {
+		if (empty($dbs["ok"])) {
 			$user = MUser::userInSession();
 
 			$dbs = array(

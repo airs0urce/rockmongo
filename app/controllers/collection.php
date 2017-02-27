@@ -99,12 +99,13 @@ class CollectionController extends BaseController {
 
 		//selected format last time
 		$this->last_format = rock_cookie("rock_format", "json");
+		$defaultPageSize =  $GLOBALS["collection_pagesize"];
 
 		//write query to log
 		$params = xn();
 		if ($this->_logQuery && count($params) > 3) {//not only "action", "db" and "collection"
 			$logDir = dirname(__ROOT__) . DS . "logs";
-			if (!empty($params["criteria"]) && strlen(trim($params["criteria"], "{} \t\n\r")) > 0) {
+			if (!empty($params["criteria"]) && mb_strlen(trim($params["criteria"], "{} \t\n\r")) > 0) {
 				if (is_writable($logDir)) {
 					$logFile = $this->_logFile($this->db, $this->collection);
 					$fp = null;
@@ -163,7 +164,7 @@ class CollectionController extends BaseController {
 		if (!is_array($this->queryFields)) {
 			$this->queryFields = array();
 		}
-
+		$this->nativeFields = array_unique(array_merge($this->nativeFields, $this->queryFields));
 		$this->indexFields = $db->selectCollection($this->collection)->getIndexInfo();
 		$this->recordsCount = $db->selectCollection($this->collection)->count();
 		foreach ($this->indexFields as $index => $indexField) {
@@ -200,14 +201,14 @@ class CollectionController extends BaseController {
 		if (empty($criteria)) {
 			$criteria = array();
 			if ($format == "array") {
-				$native = "array(\n\t\n)";
+				$native = "array(\n \n)";
 			}
 			else if ($format == "json") {
 				$native = '{
 
 }';
 			}
-			x("pagesize", 10);
+			x("pagesize", $defaultPageSize);
 		}
 		else {
 			$row = null;
@@ -217,7 +218,9 @@ class CollectionController extends BaseController {
 				$row = get_object_vars($row);
 			}
 			if (!is_array($row)) {
-				$this->message = "Criteria must be a valid " . (($format == "json") ? "JSON object" : "array");
+				$this->message = sprintf('Criteria must be a valid %s.<br/><strong>Error : </strong><br/>%s',
+					$format == 'json' ? 'JSON object' : 'array',
+					$eval->lastError());
 				$this->jsonLink = "#";
 				$this->arrayLink = "#";
 				$this->display();
@@ -255,7 +258,12 @@ class CollectionController extends BaseController {
 		//command
 		$command = x("command");
 		if (!$command) {
-			$command = "findAll";
+			 if($GLOBALS["collection_preview_enabled"]) {
+				$command = "findAll";
+			 }
+			 else {
+				$command = "none";
+			}
 			x("command", $command);
 		}
 		$limit = xi("limit");
@@ -905,6 +913,7 @@ window.parent.frames["left"].location.reload();
 		if ($ret["ok"]) {
 			$this->stats = $ret;
 			foreach ($this->stats as $index => $stat) {
+
 				if (is_array($stat) || is_bool($stat)) {
 					$this->stats[$index] = $this->_highlight($stat, "json");
 				}

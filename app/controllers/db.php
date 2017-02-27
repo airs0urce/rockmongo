@@ -221,6 +221,7 @@ class DbController extends BaseController {
 			//data
 			foreach ($this->selectedCollections as $collection) {
 				$cursor = $db->selectCollection($collection)->find();
+				$cursor->timeout(-1);
 				$this->contents .= "\n/** " . $collection  . " records **/\n";
 				foreach ($cursor as $one) {
 					$this->countRows ++;
@@ -391,6 +392,7 @@ class DbController extends BaseController {
 		//users
 		$collection = $db->selectCollection("system.users");
 		$cursor = $collection->find();
+		$cursor->timeout(-1);
 		$this->users= array();
 		while($cursor->hasNext()) {
 			$this->users[] = $cursor->getNext();
