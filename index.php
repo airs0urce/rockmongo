@@ -12,7 +12,7 @@ require_once(__DIR__."/vendor/autoload.php");
 */
 define("ROCK_MONGO_VERSION", "1.1.8");
 
-error_reporting(E_ALL & ^E_DEPRECATED & ~E_WARNING);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_WARNING);
 
 /**
 * Environment detection
